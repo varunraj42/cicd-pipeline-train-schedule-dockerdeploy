@@ -34,5 +34,28 @@ pipeline {
                 }
             }
         }
+        stage('Push to Production') {
+            when {
+                branch 'master'
+            }
+            steps {
+                input "Deploy to production?"
+                milestone(1)
+                withCredentials([usernamePassword(credentialsId : 'Web Server Login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
+                script {
+                    sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@prod_ip \"docker pull varunndock18/train-schedule:${env.BUILD_NUMBER}\""
+                    try
+                    {
+                        sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@prod_ip \"docker stop train-schedule\""
+                        sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@prod_ip \"docker rm train-schedule\""
+                    }
+                    catch(err) {
+                        echo: "Caught Error : $err"
+                    }
+                     sh "sshpass -p '$USERPASS' -v ssh -o StrictHostKeyChecking=no $USERNAME@prod_ip \"docker run --restart always --name train-schedule -P 8080:8080 -d varunndock18/train-schedule:${env.BUILD_NUMBER}\""
+                }
+                }
+            }
+        }
     }
 }
